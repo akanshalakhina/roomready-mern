@@ -45,4 +45,32 @@ class RoomNotOccupied extends DomainError {
   }
 }
 
-module.exports = { DomainError, ValidationError, NoSuchProperty, NoSuchRoom, RoomNotOccupied };
+class NoSuchHousekeeper extends DomainError {
+  constructor(id) {
+    super(404, '/errors/no-such-housekeeper', 'No such housekeeper', `There is no housekeeper ${id}`);
+  }
+}
+
+class NoSuchAssignment extends DomainError {
+  constructor(id) {
+    super(404, '/errors/no-such-assignment', 'No such assignment', `There is no assignment ${id}`);
+  }
+}
+
+/** The room is not where this step needs it: `state` says where it is, `needs` what must happen first. */
+class StepSkipped extends DomainError {
+  constructor(state, needs) {
+    super(409, '/errors/step-skipped', 'Step skipped', `The room is ${state}; first it needs: ${needs}`);
+    this.state = state;
+    this.needs = needs;
+  }
+
+  extras() {
+    return { state: this.state, needs: this.needs };
+  }
+}
+
+module.exports = {
+  DomainError, ValidationError, NoSuchProperty, NoSuchRoom, RoomNotOccupied, NoSuchHousekeeper, NoSuchAssignment,
+  StepSkipped,
+};

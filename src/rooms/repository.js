@@ -53,6 +53,10 @@ function room(propertyId, no) {
   return Room.findOne({ propertyId, no }).lean();
 }
 
+function housekeeper(propertyId, id) {
+  return Housekeeper.findOne({ propertyId, id }).lean();
+}
+
 function housekeepersOf(propertyId) {
   return Housekeeper.find({ propertyId }).sort({ id: 1 }).lean();
 }
@@ -68,4 +72,6 @@ async function currentStays(propertyId, roomNos) {
   return new Map(stays.map((st) => [st.roomId, st]));
 }
 
-module.exports = { Stay, propertyExists, addProperty, roomsOf, room, housekeepersOf, currentStay, currentStays };
+module.exports = {
+  Stay, propertyExists, addProperty, roomsOf, room, housekeeper, housekeepersOf, currentStay, currentStays,
+};

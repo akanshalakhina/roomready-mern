@@ -1,21 +1,35 @@
 'use strict';
 const { NoSuchProperty, NoSuchRoom } = require('../errors');
+const { stateOf, since } = require('./state');
 
-/** A room's state is derived from where it is in the sequence, on every read; nothing stores it. */
-function stateOf(room, stay) {
-  if (room.outOfOrder) return 'out_of_order';
-  return !stay || stay.checkedOutAt === null ? 'occupied' : 'dirty';
+/** Each room's current stay and that stay's open assignment. */
+async function whereAre({ repository, assignments }, property, rooms) {
+  const stays = await repository.currentStays(property, rooms.map((r) => r.no));
+  const open = await assignments.openForStays(property, [...stays.values()].map((st) => st.stayId));
+  return rooms.map((r) => {
+    const stay = stays.get(r.no);
+    return { roomDoc: r, stay, assignment: (stay && open.get(stay.stayId)) || null };
+  });
 }
 
-function makeRoomService({ repository }) {
+function makeRoomService({ repository, assignments, clock }) {
+  const repos = { repository, assignments };
+
   async function requireProperty(property) {
     if (!(await repository.propertyExists(property))) throw new NoSuchProperty(property);
   }
 
-  /** The rooms with their derived states. */
+  /** The rooms as the board shows them: who is on each and since when (whole minutes, by the clock). */
   async function shapeAll(property, rooms) {
-    const stays = await repository.currentStays(property, rooms.map((r) => r.no));
-    return rooms.map((r) => ({ no: r.no, floor: r.floor, type: r.type, state: stateOf(r, stays.get(r.no)) }));
+    const names = new Map((await repository.housekeepersOf(property)).map((h) => [h.id, h.name]));
+    return (await whereAre(repos, property, rooms)).map(({ roomDoc, stay, assignment }) => {
+      const state = stateOf(roomDoc, stay, assignment);
+      const shaped = { no: roomDoc.no, floor: roomDoc.floor, type: roomDoc.type, state, assignedTo: null };
+      const from = since(state, assignment);
+      if (!from) return shaped;
+      const sinceMinutes = Math.floor((clock.now().getTime() - from.getTime()) / 60000);
+      return { ...shaped, assignedTo: names.get(assignment.housekeeperId), sinceMinutes };
+    });
   }
 
   /** The board, optionally one floor, state and/or type; `ready` and `dirty` count the rooms shown. */
@@ -34,11 +48,13 @@ function makeRoomService({ repository }) {
     return (await shapeAll(property, [found]))[0];
   }
 
-  /** The housekeepers, each with the room of her open assignment (none yet). */
+  /** The housekeepers, each with the room number of her open assignment, or null. */
   async function housekeepers(property) {
     await requireProperty(property);
+    const open = new Map((await whereAre(repos, property, await repository.roomsOf(property)))
+      .filter((w) => w.assignment).map((w) => [w.assignment.housekeeperId, w.roomDoc.no]));
     const list = await repository.housekeepersOf(property);
-    return { housekeepers: list.map((h) => ({ id: h.id, name: h.name, openAssignment: null })) };
+    return { housekeepers: list.map((h) => ({ id: h.id, name: h.name, openAssignment: open.get(h.id) || null })) };
   }
 
   return { board, room, housekeepers };
