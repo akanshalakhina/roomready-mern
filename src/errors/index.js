@@ -70,7 +70,24 @@ class StepSkipped extends DomainError {
   }
 }
 
+class AlreadyAssigned extends DomainError {
+  constructor(assignedTo) {
+    super(409, '/errors/already-assigned', 'Already assigned', `The room already has an open assignment (${assignedTo})`);
+    this.assignedTo = assignedTo;
+  }
+
+  extras() {
+    return { assignedTo: this.assignedTo };
+  }
+}
+
+class SelfInspection extends DomainError {
+  constructor() {
+    super(409, '/errors/self-inspection', 'Self-inspection', 'The inspector cleaned this room; somebody else must inspect it');
+  }
+}
+
 module.exports = {
   DomainError, ValidationError, NoSuchProperty, NoSuchRoom, RoomNotOccupied, NoSuchHousekeeper, NoSuchAssignment,
-  StepSkipped,
+  StepSkipped, AlreadyAssigned, SelfInspection,
 };

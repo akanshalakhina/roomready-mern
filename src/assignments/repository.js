@@ -11,6 +11,7 @@ const Assignment = mongoose.model('Assignment', new mongoose.Schema({
   startedAt: { type: Date, default: null },
   finishedAt: { type: Date, default: null },
   cleanMinutes: { type: Number, default: null },
+  closedAt: { type: Date, default: null },
 }, { collection: 'assignments' }));
 
 /** The next assignment id in the property: 'AS' and a number of at least three digits, AS001 first. */
@@ -27,14 +28,19 @@ function byId(propertyId, assignmentId) {
   return Assignment.findOne({ propertyId, assignmentId }).lean();
 }
 
-/** The open assignment of each of these stays, keyed by stayId. */
+/** The open assignment (closedAt null) of each of these stays, keyed by stayId. */
 async function openForStays(propertyId, stayIds) {
-  const open = await Assignment.find({ propertyId, stayId: { $in: stayIds } }).lean();
+  const open = await Assignment.find({ propertyId, stayId: { $in: stayIds }, closedAt: null }).lean();
   return new Map(open.map((a) => [a.stayId, a]));
+}
+
+/** Every assignment of these stays, open or closed. */
+function ofStays(propertyId, stayIds) {
+  return Assignment.find({ propertyId, stayId: { $in: stayIds } }).lean();
 }
 
 async function stamp(assignmentId, fields) {
   await Assignment.updateOne({ assignmentId }, { $set: fields });
 }
 
-module.exports = { nextId, insert, byId, openForStays, stamp };
+module.exports = { nextId, insert, byId, openForStays, ofStays, stamp };

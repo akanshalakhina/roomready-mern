@@ -2,18 +2,23 @@
 const { NoSuchProperty, NoSuchRoom } = require('../errors');
 const { stateOf, since } = require('./state');
 
-/** Each room's current stay and that stay's open assignment. */
-async function whereAre({ repository, assignments }, property, rooms) {
+/** Each room's current stay, that stay's open assignment, and whether an inspection of that stay passed. */
+async function whereAre({ repository, assignments, inspections }, property, rooms) {
   const stays = await repository.currentStays(property, rooms.map((r) => r.no));
-  const open = await assignments.openForStays(property, [...stays.values()].map((st) => st.stayId));
+  const stayIds = [...stays.values()].map((st) => st.stayId);
+  const open = await assignments.openForStays(property, stayIds);
+  const all = await assignments.ofStays(property, stayIds);
+  const passed = await inspections.passedAssignments(property, all.map((a) => a.assignmentId));
+  const passedStays = new Set(all.filter((a) => passed.has(a.assignmentId)).map((a) => a.stayId));
   return rooms.map((r) => {
     const stay = stays.get(r.no);
-    return { roomDoc: r, stay, assignment: (stay && open.get(stay.stayId)) || null };
+    const assignment = (stay && open.get(stay.stayId)) || null;
+    return { roomDoc: r, stay, assignment, passed: Boolean(stay && passedStays.has(stay.stayId)) };
   });
 }
 
-function makeRoomService({ repository, assignments, clock }) {
-  const repos = { repository, assignments };
+function makeRoomService({ repository, assignments, inspections, clock }) {
+  const repos = { repository, assignments, inspections };
 
   async function requireProperty(property) {
     if (!(await repository.propertyExists(property))) throw new NoSuchProperty(property);
@@ -22,8 +27,8 @@ function makeRoomService({ repository, assignments, clock }) {
   /** The rooms as the board shows them: who is on each and since when (whole minutes, by the clock). */
   async function shapeAll(property, rooms) {
     const names = new Map((await repository.housekeepersOf(property)).map((h) => [h.id, h.name]));
-    return (await whereAre(repos, property, rooms)).map(({ roomDoc, stay, assignment }) => {
-      const state = stateOf(roomDoc, stay, assignment);
+    return (await whereAre(repos, property, rooms)).map(({ roomDoc, stay, assignment, passed }) => {
+      const state = stateOf(roomDoc, stay, assignment, passed);
       const shaped = { no: roomDoc.no, floor: roomDoc.floor, type: roomDoc.type, state, assignedTo: null };
       const from = since(state, assignment);
       if (!from) return shaped;
