@@ -2,12 +2,12 @@
 
 /**
  * A room's state, derived from where it is in the sequence - never stored. `stay` is its current stay, `assignment`
- * the open assignment of that stay (or null), `passed` whether an inspection of that stay passed.
+ * the open assignment of that stay (or null). A stay stamped ready by a passed inspection makes the room ready.
  */
-function stateOf(room, stay, assignment, passed = false) {
+function stateOf(room, stay, assignment) {
   if (room.outOfOrder) return 'out_of_order';
   if (!stay || stay.checkedOutAt === null) return 'occupied';
-  if (!assignment) return passed ? 'ready' : 'dirty';
+  if (!assignment) return stay.readyAt ? 'ready' : 'dirty';
   if (assignment.startedAt === null) return 'assigned';
   return assignment.finishedAt === null ? 'cleaning' : 'toinspect';
 }

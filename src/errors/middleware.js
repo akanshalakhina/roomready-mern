@@ -22,8 +22,9 @@ function notJson() {
 }
 
 /**
- * The one place that turns a thrown error into an answer. Express knows an error handler by its four arguments, so
- * `next` stays although it is not called.
+ * The one place that turns a thrown error into an answer. Anything that is not a refusal (a failed write, a bug) is a
+ * 500 in the same shape, with a generic detail; no ticket names its type yet, so it is "about:blank". Express knows an
+ * error handler by its four arguments, so `next` stays although it is not called.
  */
 function errorHandler(err, req, res, next) {
   const refusal = err.type === 'entity.parse.failed' ? notJson() : err;
@@ -33,7 +34,9 @@ function errorHandler(err, req, res, next) {
     });
     return;
   }
-  throw err;
+  problem(req, res, {
+    status: 500, type: 'about:blank', title: 'Internal Server Error', detail: 'Something went wrong on our side',
+  });
 }
 
 module.exports = { notFound, errorHandler };

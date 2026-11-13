@@ -30,6 +30,8 @@ const Stay = mongoose.model('Stay', new mongoose.Schema({
   checkedInAt: { type: Date, required: true },
   checkedOutAt: { type: Date, default: null },
   arrivalAt: { type: Date, default: null },
+  readyAt: { type: Date, default: null },
+  marginMinutes: { type: Number, default: null },
 }, { collection: 'stays' }));
 
 function propertyExists(slug) {

@@ -1,5 +1,6 @@
 'use strict';
 const mongoose = require('mongoose');
+const { Stay } = require('../rooms/repository');
 
 const Inspection = mongoose.model('Inspection', new mongoose.Schema({
   propertyId: { type: String, required: true },
@@ -17,14 +18,13 @@ async function nextId(propertyId) {
   return `IN${String(count + 1).padStart(3, '0')}`;
 }
 
-async function insert(inspection) {
-  await Inspection.create(inspection);
+async function insert(inspection, session) {
+  await Inspection.create([inspection], { session });
 }
 
-/** The assignment ids (of these) whose inspection passed. */
-async function passedAssignments(propertyId, assignmentIds) {
-  const passed = await Inspection.find({ propertyId, assignmentId: { $in: assignmentIds }, result: 'pass' }).lean();
-  return new Set(passed.map((i) => i.assignmentId));
+/** The room is ready for the next guest: when, and how many minutes before the arrival (stored, never recomputed). */
+async function markReady(stayId, { readyAt, marginMinutes }, session) {
+  await Stay.updateOne({ stayId }, { $set: { readyAt, marginMinutes } }, { session });
 }
 
-module.exports = { nextId, insert, passedAssignments };
+module.exports = { nextId, insert, markReady };
